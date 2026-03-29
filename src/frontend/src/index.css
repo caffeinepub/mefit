@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 1rem;
+    /* Dark navy theme — MeFit premium */
+    --background: 0.12 0.018 255;
+    --foreground: 0.94 0.01 250;
+    --card: 0.16 0.022 255;
+    --card-foreground: 0.94 0.01 250;
+    --popover: 0.18 0.025 255;
+    --popover-foreground: 0.94 0.01 250;
+    --primary: 0.62 0.19 265;
+    --primary-foreground: 0.98 0.005 250;
+    --secondary: 0.22 0.03 255;
+    --secondary-foreground: 0.84 0.01 250;
+    --muted: 0.2 0.025 255;
+    --muted-foreground: 0.58 0.04 255;
+    --accent: 0.55 0.22 290;
+    --accent-foreground: 0.98 0.005 250;
+    --destructive: 0.62 0.22 27;
+    --destructive-foreground: 0.98 0 0;
+    --border: 1 0 0 / 8%;
+    --input: 1 0 0 / 10%;
+    --ring: 0.62 0.19 265;
+    --chart-1: 0.6 0.19 250;
+    --chart-2: 0.62 0.18 300;
+    --chart-3: 0.65 0.2 190;
+    --chart-4: 0.75 0.17 60;
+    --chart-5: 0.62 0.22 27;
+    --sidebar: 0.14 0.02 255;
+    --sidebar-foreground: 0.94 0.01 250;
+    --sidebar-primary: 0.62 0.19 265;
+    --sidebar-primary-foreground: 0.98 0.005 250;
+    --sidebar-accent: 0.22 0.03 255;
+    --sidebar-accent-foreground: 0.84 0.01 250;
+    --sidebar-border: 1 0 0 / 8%;
+    --sidebar-ring: 0.62 0.19 265;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+    background: #0a0f1e;
+  }
+}
+
+@keyframes sos-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+@keyframes sos-ripple-2 {
+  0% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes sos-ripple-3 {
+  0% {
+    transform: scale(1);
+    opacity: 0.2;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes float-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 28px rgba(139, 92, 246, 0.7));
+  }
+}
