@@ -1,35 +1,39 @@
 import { Camera, GitCompare, TrendingDown, TrendingUp } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { addHealthLog, getHealthLogs } from "../../utils/userDataStore";
+
+type PhotoLabel = "Before" | "After" | "Weekly";
 
 interface BodyPhoto {
+  id: string;
   week: number;
+  label: PhotoLabel;
   date: string;
   dataUrl: string;
 }
 
-const DEMO_WEIGHTS = [
-  { week: 1, weight: 68.5 },
-  { week: 2, weight: 68.0 },
-  { week: 3, weight: 67.8 },
-  { week: 4, weight: 67.2 },
-  { week: 5, weight: 66.9 },
-  { week: 6, weight: 66.5 },
-];
-
 function loadPhotos(): BodyPhoto[] {
   try {
-    const raw = localStorage.getItem("mefit_body_photos");
+    const raw = localStorage.getItem("mefit_body_photos_v2");
     return raw ? (JSON.parse(raw) as BodyPhoto[]) : [];
   } catch {
     return [];
   }
 }
 
+function savePhotos(photos: BodyPhoto[]) {
+  localStorage.setItem("mefit_body_photos_v2", JSON.stringify(photos));
+}
+
 export default function BodyProgress() {
   const [photos, setPhotos] = useState<BodyPhoto[]>(loadPhotos);
   const [compareMode, setCompareMode] = useState(false);
+  const [pendingLabel, setPendingLabel] = useState<PhotoLabel>("Weekly");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const healthLogs = getHealthLogs();
+  const latestWeight = healthLogs.find((h) => h.weight)?.weight;
 
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -37,42 +41,35 @@ export default function BodyProgress() {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
-      const newWeek = photos.length + 1;
+      const weeklyPhotos = photos.filter((p) => p.label === "Weekly");
+      const newWeek = weeklyPhotos.length + 1;
       const newPhoto: BodyPhoto = {
+        id: String(Date.now()),
         week: newWeek,
+        label: pendingLabel,
         date: new Date().toLocaleDateString("en-IN"),
         dataUrl,
       };
       const updated = [...photos, newPhoto];
       setPhotos(updated);
-      localStorage.setItem("mefit_body_photos", JSON.stringify(updated));
-      toast.success(`Week ${newWeek} photo saved!`);
+      savePhotos(updated);
+      toast.success(`${pendingLabel} photo saved!`);
+
+      // If user uploaded a photo, also add a health log entry so report can count it
+      addHealthLog({ notes: `Progress photo uploaded (${pendingLabel})` });
     };
     reader.readAsDataURL(file);
     e.target.value = "";
   }
 
-  const first = photos[0];
-  const latest = photos[photos.length - 1];
-  const weightChange =
-    DEMO_WEIGHTS[DEMO_WEIGHTS.length - 1].weight - DEMO_WEIGHTS[0].weight;
+  const beforePhoto = photos.find((p) => p.label === "Before");
+  const afterPhoto = photos.find((p) => p.label === "After");
 
   const cardStyle = {
     background: "rgba(255,255,255,0.04)",
     border: "1px solid rgba(255,255,255,0.08)",
     borderRadius: "20px",
   };
-
-  // Simple sparkline
-  const w = 200;
-  const h = 60;
-  const minW = Math.min(...DEMO_WEIGHTS.map((d) => d.weight));
-  const maxW = Math.max(...DEMO_WEIGHTS.map((d) => d.weight));
-  const pts = DEMO_WEIGHTS.map((d, i) => {
-    const x = (i / (DEMO_WEIGHTS.length - 1)) * w;
-    const y = h - ((d.weight - minW) / (maxW - minW || 1)) * (h - 10) - 5;
-    return `${x},${y}`;
-  }).join(" ");
 
   return (
     <div className="space-y-4">
@@ -112,7 +109,7 @@ export default function BodyProgress() {
               }}
             >
               <Camera size={12} />
-              Upload Week {photos.length + 1}
+              Upload
             </button>
             <input
               ref={fileRef}
@@ -124,42 +121,65 @@ export default function BodyProgress() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <div
-            className="rounded-xl p-3"
-            style={{ background: "rgba(255,255,255,0.04)" }}
-          >
-            <p className="text-slate-400 text-xs">Weight Change</p>
-            <div className="flex items-center gap-1 mt-1">
-              {weightChange < 0 ? (
-                <TrendingDown size={16} style={{ color: "#10B981" }} />
-              ) : (
-                <TrendingUp size={16} style={{ color: "#F97316" }} />
-              )}
-              <span
-                className="font-bold text-sm"
-                style={{ color: weightChange < 0 ? "#10B981" : "#F97316" }}
+        {/* Label selector */}
+        <div className="flex flex-col gap-2">
+          <p className="text-slate-400 text-xs font-semibold">Photo label:</p>
+          <div className="flex gap-2">
+            {(["Before", "After", "Weekly"] as PhotoLabel[]).map((lbl) => (
+              <button
+                key={lbl}
+                type="button"
+                onClick={() => setPendingLabel(lbl)}
+                className="flex-1 py-1.5 rounded-full text-xs font-semibold transition-all"
+                style={{
+                  background:
+                    pendingLabel === lbl
+                      ? lbl === "Before"
+                        ? "linear-gradient(135deg, #3B82F6, #6366F1)"
+                        : lbl === "After"
+                          ? "linear-gradient(135deg, #10B981, #059669)"
+                          : "linear-gradient(135deg, #8B5CF6, #EC4899)"
+                      : "rgba(255,255,255,0.06)",
+                  color: pendingLabel === lbl ? "#fff" : "#94A3B8",
+                  border:
+                    pendingLabel === lbl
+                      ? "none"
+                      : "1px solid rgba(255,255,255,0.08)",
+                }}
               >
-                {weightChange > 0 ? "+" : ""}
-                {weightChange.toFixed(1)} kg
-              </span>
-            </div>
-          </div>
-          <div
-            className="rounded-xl p-3"
-            style={{ background: "rgba(255,255,255,0.04)" }}
-          >
-            <p className="text-slate-400 text-xs">Current Weight</p>
-            <p className="text-white font-bold text-sm mt-1">
-              {DEMO_WEIGHTS[DEMO_WEIGHTS.length - 1].weight} kg
-            </p>
+                {lbl}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Stats — only if real data exists */}
+        {latestWeight && (
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <div
+              className="rounded-xl p-3"
+              style={{ background: "rgba(255,255,255,0.04)" }}
+            >
+              <p className="text-slate-400 text-xs">Current Weight</p>
+              <p className="text-white font-bold text-sm mt-1">
+                {latestWeight} kg
+              </p>
+            </div>
+            <div
+              className="rounded-xl p-3"
+              style={{ background: "rgba(255,255,255,0.04)" }}
+            >
+              <p className="text-slate-400 text-xs">Photos</p>
+              <p className="text-white font-bold text-sm mt-1">
+                {photos.length} uploaded
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Compare View */}
-      {compareMode && first && latest && photos.length >= 2 ? (
+      {/* Before/After comparison */}
+      {compareMode && beforePhoto && afterPhoto ? (
         <div style={cardStyle} className="p-4">
           <p className="text-white font-semibold text-sm mb-3">
             Before vs After
@@ -167,44 +187,48 @@ export default function BodyProgress() {
           <div className="grid grid-cols-2 gap-3">
             <div className="text-center">
               <img
-                src={first.dataUrl}
-                alt="Week 1"
+                src={beforePhoto.dataUrl}
+                alt="Before"
                 className="rounded-2xl w-full object-cover"
                 style={{ height: "180px" }}
               />
-              <p className="text-slate-400 text-xs mt-1">
-                Week 1 · {first.date}
-              </p>
+              <p className="text-blue-400 text-xs font-bold mt-1">BEFORE</p>
+              <p className="text-slate-500 text-[10px]">{beforePhoto.date}</p>
             </div>
             <div className="text-center">
               <img
-                src={latest.dataUrl}
-                alt={`Week ${latest.week}`}
+                src={afterPhoto.dataUrl}
+                alt="After"
                 className="rounded-2xl w-full object-cover"
                 style={{ height: "180px" }}
               />
-              <p className="text-slate-400 text-xs mt-1">
-                Week {latest.week} · {latest.date}
-              </p>
+              <p className="text-green-400 text-xs font-bold mt-1">AFTER</p>
+              <p className="text-slate-500 text-[10px]">{afterPhoto.date}</p>
             </div>
           </div>
         </div>
-      ) : compareMode && photos.length < 2 ? (
+      ) : compareMode && (!beforePhoto || !afterPhoto) ? (
         <div
           style={cardStyle}
           className="p-8 text-center"
           data-ocid="progress.empty_state"
         >
           <p className="text-slate-500 text-sm">
-            Upload at least 2 photos to compare.
+            {!beforePhoto && !afterPhoto
+              ? "Upload a 'Before' and 'After' photo to compare."
+              : !beforePhoto
+                ? "Upload a 'Before' photo to compare."
+                : "Upload an 'After' photo to compare."}
           </p>
         </div>
       ) : null}
 
-      {/* Photo grid */}
+      {/* Weekly photos grid */}
       {!compareMode && (
         <div style={cardStyle} className="p-4">
-          <p className="text-white font-semibold text-sm mb-3">Weekly Photos</p>
+          <p className="text-white font-semibold text-sm mb-3">
+            Progress Photos
+          </p>
           {photos.length === 0 ? (
             <div className="text-center py-8" data-ocid="progress.empty_state">
               <Camera
@@ -214,26 +238,38 @@ export default function BodyProgress() {
               />
               <p className="text-slate-500 text-sm">No photos uploaded yet.</p>
               <p className="text-slate-600 text-xs mt-1">
-                Upload your first weekly photo to track progress!
+                Upload your first photo — choose "Before", "After", or "Weekly"
+                label.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {photos.map((p) => (
+              {photos.map((p, i) => (
                 <div
-                  key={p.week}
+                  key={p.id}
                   className="text-center"
-                  data-ocid={`progress.item.${p.week}`}
+                  data-ocid={`progress.item.${i + 1}`}
                 >
                   <img
                     src={p.dataUrl}
-                    alt={`Week ${p.week}`}
+                    alt={p.label}
                     className="rounded-2xl w-full object-cover"
                     style={{ height: "140px" }}
                   />
-                  <p className="text-slate-400 text-xs mt-1">
-                    Week {p.week} · {p.date}
+                  <p
+                    className="text-xs font-bold mt-1"
+                    style={{
+                      color:
+                        p.label === "Before"
+                          ? "#3B82F6"
+                          : p.label === "After"
+                            ? "#10B981"
+                            : "#8B5CF6",
+                    }}
+                  >
+                    {p.label.toUpperCase()}
                   </p>
+                  <p className="text-slate-500 text-[10px]">{p.date}</p>
                 </div>
               ))}
             </div>
@@ -241,45 +277,40 @@ export default function BodyProgress() {
         </div>
       )}
 
-      {/* Weight Trend */}
-      <div style={cardStyle} className="p-4">
-        <p className="text-white font-semibold text-sm mb-3">
-          Weight Trend (6 Weeks)
-        </p>
-        <svg
-          width="100%"
-          viewBox={`0 0 ${w} ${h}`}
-          preserveAspectRatio="xMidYMid meet"
-          role="img"
-          aria-label="Weight trend over 6 weeks"
-        >
-          <title>Weight Trend</title>
-          <polyline
-            points={pts}
-            fill="none"
-            stroke="url(#wGrad)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <defs>
-            <linearGradient id="wGrad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#3B82F6" />
-              <stop offset="100%" stopColor="#10B981" />
-            </linearGradient>
-          </defs>
-          {DEMO_WEIGHTS.map((d, i) => {
-            const x = (i / (DEMO_WEIGHTS.length - 1)) * w;
-            const y =
-              h - ((d.weight - minW) / (maxW - minW || 1)) * (h - 10) - 5;
-            return <circle key={d.week} cx={x} cy={y} r="3" fill="#3B82F6" />;
-          })}
-        </svg>
-        <div className="flex justify-between mt-1">
-          <span className="text-slate-500 text-[10px]">Week 1</span>
-          <span className="text-slate-500 text-[10px]">Week 6</span>
+      {/* Weight history — only if health logs have weight entries */}
+      {healthLogs.filter((h) => h.weight).length > 1 && (
+        <div style={cardStyle} className="p-4">
+          <p className="text-white font-semibold text-sm mb-3">
+            Weight History
+          </p>
+          <div className="space-y-2">
+            {healthLogs
+              .filter((h) => h.weight)
+              .slice(0, 5)
+              .map((h, i) => (
+                <div key={h.id} className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs">
+                    {new Date(h.timestamp).toLocaleDateString("en-IN")}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {i > 0 &&
+                      healthLogs.filter((x) => x.weight)[i - 1]?.weight &&
+                      ((h.weight ?? 0) <
+                      (healthLogs.filter((x) => x.weight)[i - 1]?.weight ??
+                        0) ? (
+                        <TrendingDown size={12} style={{ color: "#10B981" }} />
+                      ) : (
+                        <TrendingUp size={12} style={{ color: "#F97316" }} />
+                      ))}
+                    <span className="text-white text-sm font-bold">
+                      {h.weight} kg
+                    </span>
+                  </div>
+                </div>
+              ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -129,6 +129,9 @@ export default function ProfileTab({ mefitUser, role, onLogout }: Props) {
   const [language, setLanguage] = useState(
     () => localStorage.getItem("mefit_language") ?? "English",
   );
+  const [clarifaiKey, setClarifaiKey] = useState(
+    () => localStorage.getItem("clarifai_api_key") ?? "",
+  );
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAvatarShop, setShowAvatarShop] = useState(false);
   const [showAvatarCreator, setShowAvatarCreator] = useState(false);
@@ -748,6 +751,56 @@ export default function ProfileTab({ mefitUser, role, onLogout }: Props) {
       </div>
 
       {/* Role Info */}
+      {/* Clarifai API Key */}
+      <div style={cardStyle}>
+        <div className="flex items-center gap-2 mb-3">
+          <span style={{ fontSize: 14, color: "#818CF8" }}>🤖</span>
+          <span className="text-white font-semibold text-sm">
+            AI Food Detection
+          </span>
+        </div>
+        <div className="space-y-2">
+          <p className="text-slate-200 text-sm">
+            Clarifai API Key (for food AI)
+          </p>
+          <input
+            type="password"
+            value={clarifaiKey}
+            onChange={(e) => setClarifaiKey(e.target.value)}
+            placeholder="Enter your Clarifai API key"
+            data-ocid="profile.input"
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 10,
+              color: "white",
+              padding: "8px 12px",
+              fontSize: 13,
+              width: "100%",
+              outline: "none",
+            }}
+          />
+          <p className="text-slate-500 text-xs">
+            Get a free key at clarifai.com — improves food detection accuracy
+          </p>
+          <button
+            type="button"
+            data-ocid="profile.save_button"
+            onClick={() => {
+              localStorage.setItem("clarifai_api_key", clarifaiKey);
+              toast.success("API key saved!");
+            }}
+            className="px-4 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{
+              background: "linear-gradient(135deg,#6366F1,#8B5CF6)",
+              color: "white",
+            }}
+          >
+            Save Key
+          </button>
+        </div>
+      </div>
+
       <div
         className="rounded-2xl p-4 flex items-center gap-3"
         style={{

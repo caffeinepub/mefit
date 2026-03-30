@@ -1,13 +1,7 @@
-import {
-  ChevronDown,
-  ChevronUp,
-  Droplets,
-  Flame,
-  Wheat,
-  Zap,
-} from "lucide-react";
+import { Camera, Droplets, Flame, Mic, Plus, Wheat, Zap } from "lucide-react";
 import { useState } from "react";
 import type { MeFitUser } from "../../types";
+import { getMealLogs } from "../../utils/userDataStore";
 import FoodSnap from "./FoodSnap";
 import PureCaneBlissCard from "./PureCaneBlissCard";
 import VoiceFoodLogger from "./VoiceFoodLogger";
@@ -17,100 +11,69 @@ interface Props {
   lifestyle: MeFitUser["lifestyle"];
 }
 
-const meals = [
-  {
-    id: "breakfast",
-    label: "Breakfast",
-    time: "8:00 AM",
-    items: "Oats & Banana",
-    kcal: 380,
-    p: 12,
-    c: 68,
-    f: 6,
-    emoji: "\uD83E\uDD63",
-  },
-  {
-    id: "lunch",
-    label: "Lunch",
-    time: "1:00 PM",
-    items: "Dal Rice & Salad",
-    kcal: 520,
-    p: 18,
-    c: 82,
-    f: 9,
-    emoji: "\uD83C\uDF5B",
-  },
-  {
-    id: "dinner",
-    label: "Dinner",
-    time: "8:00 PM",
-    items: "Grilled Paneer & Veggies",
-    kcal: 460,
-    p: 35,
-    c: 28,
-    f: 12,
-    emoji: "\uD83E\uDD57",
-  },
-  {
-    id: "snack",
-    label: "Snack",
-    time: "4:30 PM",
-    items: "Nuts & Seasonal Fruit",
-    kcal: 220,
-    p: 6,
-    c: 30,
-    f: 10,
-    emoji: "\uD83E\uDD5C",
-  },
-];
-
-const macros = [
-  {
-    label: "Calories",
-    value: 1580,
-    unit: "kcal",
-    icon: Flame,
-    color: "#F97316",
-    pct: 79,
-  },
-  {
-    label: "Protein",
-    value: 71,
-    unit: "g",
-    icon: Zap,
-    color: "#3B82F6",
-    pct: 71,
-  },
-  {
-    label: "Carbs",
-    value: 208,
-    unit: "g",
-    icon: Wheat,
-    color: "#10B981",
-    pct: 83,
-  },
-  {
-    label: "Fat",
-    value: 37,
-    unit: "g",
-    icon: Droplets,
-    color: "#8B5CF6",
-    pct: 62,
-  },
-];
-
 export default function DietScreen({
   goal: _goal,
   lifestyle: _lifestyle,
 }: Props) {
-  const [expanded, setExpanded] = useState<string | null>("breakfast");
+  const [activeInput, setActiveInput] = useState<"snap" | "voice" | null>(null);
   const today = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
-  const sugarG = 42;
-  const sugarLimit = 50;
+
+  const mealLogs = getMealLogs();
+  const hasLogs = mealLogs.length > 0;
+
+  // Compute totals from real logs (today only)
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todayLogs = mealLogs.filter((m) => m.timestamp.startsWith(todayStr));
+  const totals = todayLogs.reduce(
+    (acc, m) => ({
+      calories: acc.calories + m.calories,
+      protein: acc.protein + m.protein,
+      carbs: acc.carbs + m.carbs,
+      fat: acc.fat + (m.fat ?? 0),
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  );
+
+  const macros = hasLogs
+    ? [
+        {
+          label: "Calories",
+          value: totals.calories,
+          unit: "kcal",
+          icon: Flame,
+          color: "#F97316",
+          pct: Math.min(100, Math.round((totals.calories / 2000) * 100)),
+        },
+        {
+          label: "Protein",
+          value: totals.protein,
+          unit: "g",
+          icon: Zap,
+          color: "#3B82F6",
+          pct: Math.min(100, Math.round((totals.protein / 75) * 100)),
+        },
+        {
+          label: "Carbs",
+          value: totals.carbs,
+          unit: "g",
+          icon: Wheat,
+          color: "#10B981",
+          pct: Math.min(100, Math.round((totals.carbs / 250) * 100)),
+        },
+        {
+          label: "Fat",
+          value: totals.fat,
+          unit: "g",
+          icon: Droplets,
+          color: "#8B5CF6",
+          pct: Math.min(100, Math.round((totals.fat / 65) * 100)),
+        },
+      ]
+    : [];
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -119,162 +82,197 @@ export default function DietScreen({
         <p className="text-gray-500 text-sm">{today}</p>
       </div>
 
-      {/* Voice Food Logger */}
-      <div
-        className="rounded-3xl p-5"
-        style={{
-          background: "rgba(255,255,255,0.04)",
-          backdropFilter: "blur(16px)",
-          border: "1px solid rgba(236,72,153,0.15)",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
-        }}
-      >
-        <VoiceFoodLogger />
+      {/* Input action buttons */}
+      <div className="flex gap-3">
+        <button
+          type="button"
+          data-ocid="diet.upload_button"
+          onClick={() => setActiveInput(activeInput === "snap" ? null : "snap")}
+          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm text-white transition-all"
+          style={{
+            background:
+              activeInput === "snap"
+                ? "linear-gradient(135deg, #F97316, #EF4444)"
+                : "rgba(249,115,22,0.12)",
+            border: "1px solid rgba(249,115,22,0.3)",
+            color: activeInput === "snap" ? "#fff" : "#F97316",
+          }}
+        >
+          <Camera size={16} />
+          Meal Photo
+        </button>
+        <button
+          type="button"
+          data-ocid="diet.toggle"
+          onClick={() =>
+            setActiveInput(activeInput === "voice" ? null : "voice")
+          }
+          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm transition-all"
+          style={{
+            background:
+              activeInput === "voice"
+                ? "linear-gradient(135deg, #EC4899, #8B5CF6)"
+                : "rgba(236,72,153,0.12)",
+            border: "1px solid rgba(236,72,153,0.3)",
+            color: activeInput === "voice" ? "#fff" : "#EC4899",
+          }}
+        >
+          <Mic size={16} />
+          Voice Log
+        </button>
       </div>
 
-      {/* AI Food Snap — first section */}
-      <div
-        className="rounded-3xl p-5"
-        style={{
-          background: "rgba(255,255,255,0.7)",
-          backdropFilter: "blur(16px)",
-          border: "1px solid rgba(255,255,255,0.5)",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.07)",
-        }}
-      >
-        <FoodSnap />
-      </div>
+      {/* Input panels */}
+      {activeInput === "snap" && (
+        <div
+          className="rounded-3xl p-5"
+          style={{
+            background: "rgba(255,255,255,0.7)",
+            backdropFilter: "blur(16px)",
+            border: "1px solid rgba(255,255,255,0.5)",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.07)",
+          }}
+        >
+          <FoodSnap onSaved={() => setActiveInput(null)} />
+        </div>
+      )}
 
-      <div className="grid grid-cols-2 gap-3">
-        {macros.map(({ label, value, unit, icon: Icon, color, pct }) => (
-          <div
-            key={label}
-            className="rounded-2xl p-4 relative overflow-hidden bg-white"
-            style={{ border: `1px solid ${color}30` }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-500 text-xs font-medium">{label}</span>
-              <Icon size={14} style={{ color }} />
-            </div>
-            <p className="text-gray-800 font-bold text-xl">
-              {value}
-              <span className="text-xs text-gray-400 font-normal ml-1">
-                {unit}
-              </span>
-            </p>
+      {activeInput === "voice" && (
+        <div
+          className="rounded-3xl p-5"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            backdropFilter: "blur(16px)",
+            border: "1px solid rgba(236,72,153,0.15)",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
+          }}
+        >
+          <VoiceFoodLogger onSaved={() => setActiveInput(null)} />
+        </div>
+      )}
+
+      {/* Macros summary — only if data exists */}
+      {hasLogs && macros.length > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          {macros.map(({ label, value, unit, icon: Icon, color, pct }) => (
             <div
-              className="h-1.5 rounded-full mt-2"
-              style={{ background: `${color}20` }}
+              key={label}
+              className="rounded-2xl p-4 relative overflow-hidden bg-white"
+              style={{ border: `1px solid ${color}30` }}
             >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-500 text-xs font-medium">
+                  {label}
+                </span>
+                <Icon size={14} style={{ color }} />
+              </div>
+              <p className="text-gray-800 font-bold text-xl">
+                {value}
+                <span className="text-xs text-gray-400 font-normal ml-1">
+                  {unit}
+                </span>
+              </p>
               <div
-                className="h-full rounded-full"
-                style={{ width: `${pct}%`, background: color }}
-              />
+                className="h-1.5 rounded-full mt-2"
+                style={{ background: `${color}20` }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${pct}%`, background: color }}
+                />
+              </div>
+              <p className="text-gray-400 text-[10px] mt-1">{pct}% of goal</p>
             </div>
-            <p className="text-gray-400 text-[10px] mt-1">{pct}% of goal</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
+      {/* Diet log list */}
       <div className="flex flex-col gap-3">
-        <h2 className="text-base font-bold text-gray-700">Meals Today</h2>
-        {meals.map((meal) => (
+        <h2 className="text-base font-bold text-gray-700">Diet Log</h2>
+
+        {!hasLogs ? (
           <div
-            key={meal.id}
-            className="rounded-2xl overflow-hidden bg-white"
-            style={{ border: "1px solid rgba(0,0,0,0.07)" }}
+            className="rounded-2xl p-8 flex flex-col items-center text-center gap-4"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(99,102,241,0.04), rgba(139,92,246,0.04))",
+              border: "1px solid rgba(139,92,246,0.12)",
+            }}
+            data-ocid="diet.empty_state"
           >
-            <button
-              type="button"
-              data-ocid="diet.toggle"
-              onClick={() => setExpanded(expanded === meal.id ? null : meal.id)}
-              className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{
+                background: "linear-gradient(135deg, #6366F1, #8B5CF6)",
+              }}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-xl">{meal.emoji}</span>
+              <Plus size={24} className="text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-gray-700">No data yet</p>
+              <p className="text-gray-500 text-sm mt-1 leading-relaxed">
+                Start by adding your meals, health data, or reports.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                type="button"
+                data-ocid="diet.upload_button"
+                onClick={() => setActiveInput("snap")}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm"
+                style={{
+                  background: "linear-gradient(135deg, #F97316, #EF4444)",
+                }}
+              >
+                <Camera size={16} /> Upload Meal Photo
+              </button>
+              <button
+                type="button"
+                data-ocid="diet.toggle"
+                onClick={() => setActiveInput("voice")}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm"
+                style={{
+                  background: "linear-gradient(135deg, #EC4899, #8B5CF6)",
+                }}
+              >
+                <Mic size={16} /> Voice Food Log
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {mealLogs.slice(0, 10).map((m, i) => (
+              <div
+                key={m.id}
+                data-ocid={`diet.item.${i + 1}`}
+                className="rounded-2xl p-4 bg-white flex items-center justify-between"
+                style={{ border: "1px solid rgba(0,0,0,0.07)" }}
+              >
                 <div>
                   <p className="font-semibold text-gray-800 text-sm">
-                    {meal.label}
+                    {m.foodName}
                   </p>
-                  <p className="text-gray-400 text-xs">
-                    {meal.time} · {meal.kcal} kcal
+                  <p className="text-gray-400 text-xs mt-0.5">
+                    {new Date(m.timestamp).toLocaleTimeString("en-IN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    {" · "}
+                    {m.source}
                   </p>
                 </div>
-              </div>
-              {expanded === meal.id ? (
-                <ChevronUp size={16} className="text-gray-400" />
-              ) : (
-                <ChevronDown size={16} className="text-gray-400" />
-              )}
-            </button>
-            {expanded === meal.id && (
-              <div className="px-4 pb-4">
-                <p className="text-gray-600 text-sm mb-3">{meal.items}</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    {
-                      label: "Protein",
-                      val: meal.p,
-                      unit: "g",
-                      color: "#3B82F6",
-                    },
-                    {
-                      label: "Carbs",
-                      val: meal.c,
-                      unit: "g",
-                      color: "#10B981",
-                    },
-                    { label: "Fat", val: meal.f, unit: "g", color: "#F97316" },
-                  ].map(({ label, val, unit, color }) => (
-                    <div
-                      key={label}
-                      className="rounded-xl p-2 text-center"
-                      style={{ background: `${color}12` }}
-                    >
-                      <p className="font-bold text-sm" style={{ color }}>
-                        {val}
-                        {unit}
-                      </p>
-                      <p className="text-gray-400 text-[10px]">{label}</p>
-                    </div>
-                  ))}
+                <div className="flex gap-3 text-xs">
+                  <span style={{ color: "#F97316" }}>{m.calories} kcal</span>
+                  <span style={{ color: "#3B82F6" }}>{m.protein}g P</span>
                 </div>
               </div>
-            )}
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
       <PureCaneBlissCard className="bg-slate-800" />
-
-      <div
-        className="rounded-2xl p-4 bg-white"
-        style={{ border: "1px solid rgba(239,68,68,0.2)" }}
-      >
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-sm font-semibold text-gray-700">
-            Daily Sugar Intake
-          </h3>
-          <span className="text-xs font-bold text-red-500">
-            {sugarG}g / {sugarLimit}g
-          </span>
-        </div>
-        <div
-          className="h-2.5 rounded-full"
-          style={{ background: "rgba(239,68,68,0.1)" }}
-        >
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: `${(sugarG / sugarLimit) * 100}%`,
-              background: "linear-gradient(90deg, #F97316, #EF4444)",
-            }}
-          />
-        </div>
-        <p className="text-red-400 text-xs mt-2">
-          ⚠ Approaching daily sugar limit. Consider reducing sugary snacks.
-        </p>
-      </div>
     </div>
   );
 }

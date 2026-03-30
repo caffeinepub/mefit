@@ -1,11 +1,18 @@
 import { Lock } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { StreakData } from "../../types";
+import { getSteps, getStreak, setSteps } from "../../utils/userDataStore";
+
+interface StreakData {
+  currentStreak: number;
+  lastWalkDate: string;
+  longestStreak: number;
+  todaySteps: number;
+}
 
 const DEFAULTS: StreakData = {
-  currentStreak: 5,
+  currentStreak: 0,
   lastWalkDate: "",
-  longestStreak: 12,
+  longestStreak: 0,
   todaySteps: 0,
 };
 
@@ -23,7 +30,21 @@ export default function StreakScreen() {
   const [data, setData] = useState<StreakData>(() => {
     try {
       const raw = localStorage.getItem("mefit_streak");
-      return raw ? (JSON.parse(raw) as StreakData) : DEFAULTS;
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<StreakData>;
+        return {
+          currentStreak: 0, // always reset to 0 — only user actions increment
+          lastWalkDate: parsed.lastWalkDate ?? "",
+          longestStreak: parsed.longestStreak ?? 0,
+          todaySteps: 0, // default 0 — no auto-fill
+        };
+      }
+      // Also read from shared store
+      return {
+        ...DEFAULTS,
+        currentStreak: getStreak(),
+        todaySteps: getSteps(),
+      };
     } catch {
       return DEFAULTS;
     }
@@ -78,6 +99,9 @@ export default function StreakScreen() {
 
       return next;
     });
+
+    // Update shared steps store
+    setSteps(Number(stepInput) || 0);
     setStepInput("");
   }
 
@@ -89,7 +113,6 @@ export default function StreakScreen() {
 
   return (
     <div className="flex flex-col gap-5 pb-4 relative">
-      {/* Achievement popup */}
       {achievement && (
         <button
           type="button"
@@ -168,6 +191,11 @@ export default function StreakScreen() {
             / 10,000 steps
           </p>
         </div>
+        {data.currentStreak === 0 && data.todaySteps === 0 && (
+          <p className="text-white/40 text-xs mt-2">
+            Log steps below to start your streak
+          </p>
+        )}
       </div>
 
       {/* Step Logger */}
